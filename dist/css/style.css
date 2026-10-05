@@ -286,6 +286,18 @@ body {
 }
 .toggle-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
 
+/* 日期变更方式：二选一单选（触控高度 ≥40px） */
+.radio-group { display: flex; flex-direction: column; }
+.radio-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 0; min-height: 40px; box-sizing: border-box;
+  font-size: 14px; line-height: 1.5; color: var(--text-2); cursor: pointer; user-select: none;
+}
+.radio-item input[type="radio"] {
+  width: 16px; height: 16px; margin: 3px 0 0; flex-shrink: 0;
+  accent-color: var(--primary); cursor: pointer;
+}
+
 .confirm-text { font-size: 14.5px; color: var(--text); }
 .confirm-list {
   margin: 10px 0 4px; padding: 10px 14px; background: #FFF7F0; border: 1px solid #F3D9C2;

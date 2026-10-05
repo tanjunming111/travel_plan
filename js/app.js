@@ -433,12 +433,29 @@
     });
   }
 
+  /** 修改起止日期：两种日期变更方式的解释文案 */
+  var DATE_MODE_HINT = {
+    shift: '修改日期后，事项内容将整体平移：第 N 天的安排跟随新日期；若新范围天数变少，末尾多出的天数内容将被删除',
+    keep: '修改日期后，事项内容跟随原日期、不平移：安排的日期保持不变，只有仍在新起止日期范围内的内容保留；落在新范围之外的日期及其内容将被删除'
+  };
+  /** 读取「修改起止日期」弹窗中选中的方式（默认整体平移） */
+  function dateModeOf(modal) {
+    var r = $('input[name="f-date-mode"]:checked', modal);
+    return r ? r.value : 'shift';
+  }
+
   function openEditDatesModal() {
     var trip = currentTrip(); if (!trip) return;
     var body = el(
       '<div class="form-row"><label>起始日期</label><input type="date" class="input" id="f-start" value="' + esc(trip.startDate) + '"></div>' +
       '<div class="form-row"><label>终止日期</label><input type="date" class="input" id="f-end" value="' + esc(trip.endDate) + '"></div>' +
-      '<div class="hint">修改日期后，事项内容将整体平移：第 N 天的安排跟随新日期；若新范围天数变少，末尾多出的天数内容将被删除</div>'
+      '<div class="form-row"><label>日期变更方式</label>' +
+        '<div class="radio-group">' +
+          '<label class="radio-item"><input type="radio" name="f-date-mode" value="shift" checked><span>平移事项内容（第 N 天的安排跟随新日期）</span></label>' +
+          '<label class="radio-item"><input type="radio" name="f-date-mode" value="keep"><span>事项内容跟随原日期（不平移）</span></label>' +
+        '</div>' +
+        '<div class="hint" id="f-date-mode-hint">' + DATE_MODE_HINT.shift + '</div>' +
+      '</div>'
     );
     var modal = openModal({
       title: '修改起止日期',
@@ -449,7 +466,7 @@
           var s = $('#f-start', modal).value, e = $('#f-end', modal).value;
           if (!s || !e) { toast('请选择起止日期'); return; }
           if (e < s) { toast('终止日期不能早于起始日期'); return; }
-          var result = Store.shiftDates(trip, s, e);
+          var result = Store.shiftDates(trip, s, e, dateModeOf(modal));
           if (result.removedDays.length) {
             var removedExpByDay = {};
             (result.removedExpenses || []).forEach(function (ex) { removedExpByDay[ex.day] = (removedExpByDay[ex.day] || 0) + 1; });
@@ -457,7 +474,7 @@
               var expN = removedExpByDay[d] || 0;
               return '· ' + d + '（' + ((trip.days[d] || []).length) + ' 个事项' + (expN ? '、' + expN + ' 项花销' : '') + '将被删除）';
             }).join('<br>');
-            confirmDialog('天数减少，将删除以下内容', list + '<div class="hint">确认后这些天的安排将被删除，不可恢复。</div>', '确认删除', true).then(function (ok) {
+            confirmDialog('以下日期的内容将被删除', list + '<div class="hint">确认后这些天的安排将被删除，不可恢复。</div>', '确认删除', true).then(function (ok) {
               if (!ok) return;
               applyShift(result.trip);
               closeModal(modal);
@@ -468,6 +485,13 @@
           }
         } }
       ]
+    });
+    // 切换日期变更方式时，实时更新下方解释文案
+    var hintEl = $('#f-date-mode-hint', modal);
+    $$('input[name="f-date-mode"]', modal).forEach(function (r) {
+      r.addEventListener('change', function () {
+        if (r.checked && hintEl) hintEl.textContent = DATE_MODE_HINT[r.value] || '';
+      });
     });
   }
 

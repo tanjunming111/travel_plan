@@ -211,38 +211,60 @@
       return startDate + ' 至 ' + endDate + ' 旅行';
     },
     /**
-     * 修改起止日期：事项内容整体平移（第 N 天跟随新日期）。
-     * 花销联动：带 itemId 的花销项按日索引随事项平移；独立花销项（无 itemId）留在原日期；
-     * 原日期被移除（尾部压缩）的所有花销项删除。
+     * 修改起止日期。mode 决定事项内容的处理方式：
+     *  - 'shift'（默认）：事项内容整体平移——第 N 天的安排跟随新日期；若新范围天数变少，末尾多出的天数内容删除。
+     *  - 'keep'：事项内容跟随原日期（不平移）——安排停留在原有日期，只有仍在新起止日期范围内的内容保留，
+     *            落在新范围之外的日期及其内容删除。
+     * 花销联动：
+     *  - 'shift'：带 itemId 的花销项按日索引随事项平移；独立花销项（无 itemId）留在原日期；原日期被移除的则删除。
+     *  - 'keep'：花销项跟随自身所属日期，日期不在新范围内的删除。
      * 返回 { trip: 新计划对象, removedDays: 被移除的天, removedExpenses: 被删除的花销项 }
      */
-    shiftDates: function (trip, newStart, newEnd) {
+    shiftDates: function (trip, newStart, newEnd, mode) {
+      var isKeep = mode === 'keep';
       var oldList = DateUtils.dateList(trip.startDate, trip.endDate);
       var newList = DateUtils.dateList(newStart, newEnd);
+      var inNew = {};
+      newList.forEach(function (d) { inNew[d] = true; });
       var newDays = {};
-      newList.forEach(function (d, i) {
-        newDays[d] = i < oldList.length ? (trip.days[oldList[i]] || []).slice() : [];
-      });
-      var removedDays = oldList.slice(newList.length);
-      var removedMap = {};
-      removedDays.forEach(function (d) { removedMap[d] = true; });
-      var dayIndex = {};
-      oldList.forEach(function (d, i) { dayIndex[d] = i; });
       var oldExp = trip.expenses || [];
       var newExp = [], removedExpenses = [];
-      oldExp.forEach(function (e) {
-        if (removedMap[e.day]) { removedExpenses.push(e); return; } // 日期被压缩掉 → 花销删除
-        if (e.itemId) {
-          var idx = dayIndex[e.day];
-          if (idx != null && idx < newList.length) {
-            newExp.push(Object.assign({}, e, { day: newList[idx] })); // 随事项平移
+      // 被移除的天：平移模式=末尾多出的天；不平移模式=原范围中不在新范围内的天
+      var removedDays = isKeep
+        ? oldList.filter(function (d) { return !inNew[d]; })
+        : oldList.slice(newList.length);
+      var removedMap = {};
+      removedDays.forEach(function (d) { removedMap[d] = true; });
+
+      if (isKeep) {
+        // 不平移：按原日期保留，范围外的天删除
+        newList.forEach(function (d) { newDays[d] = (trip.days[d] || []).slice(); });
+        oldExp.forEach(function (e) {
+          if (inNew[e.day]) newExp.push(Object.assign({}, e)); // 日期仍在新范围内 → 原样保留
+          else removedExpenses.push(e);
+        });
+      } else {
+        // 整体平移：第 N 天跟随新日期
+        newList.forEach(function (d, i) {
+          newDays[d] = i < oldList.length ? (trip.days[oldList[i]] || []).slice() : [];
+        });
+        var dayIndex = {};
+        oldList.forEach(function (d, i) { dayIndex[d] = i; });
+        oldExp.forEach(function (e) {
+          if (removedMap[e.day]) { removedExpenses.push(e); return; } // 日期被压缩掉 → 花销删除
+          if (e.itemId) {
+            var idx = dayIndex[e.day];
+            if (idx != null && idx < newList.length) {
+              newExp.push(Object.assign({}, e, { day: newList[idx] })); // 随事项平移
+            } else {
+              removedExpenses.push(e); // 保险：找不到映射则删除
+            }
           } else {
-            removedExpenses.push(e); // 保险：找不到映射则删除
+            newExp.push(Object.assign({}, e)); // 独立花销项留在原日期
           }
-        } else {
-          newExp.push(Object.assign({}, e)); // 独立花销项留在原日期
-        }
-      });
+        });
+      }
+
       return {
         trip: Object.assign({}, trip, {
           startDate: newStart, endDate: newEnd, days: newDays, expenses: newExp, updatedAt: Date.now()

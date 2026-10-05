@@ -109,6 +109,27 @@ async function main() {
   ok(s2.removedDays.length === 3, '范围缩短移除末尾3天');
   ok(s2.trip.days['2026-08-12'].length === 3 && s2.trip.days['2026-08-13'].length === 2, '缩短后保留前2天内容');
 
+  console.log('== 3b. 改期不平移（事项内容跟随原日期） ==');
+  var keepSrc = Store.createTrip('不平移测试', '2026-08-10', '2026-08-14');
+  keepSrc.days['2026-08-10'] = [Store.newItem('09:00', '10:00', '第一天', '')];
+  keepSrc.days['2026-08-12'] = [Store.newItem('09:00', '10:00', '第三天', '')];
+  keepSrc.expenses = [
+    Store.newExpense('2026-08-10', '第1天花销', 1000, keepSrc.days['2026-08-10'][0].id),
+    Store.newExpense('2026-08-12', '第3天独立花销', 2000)
+  ];
+  var k1 = Store.shiftDates(keepSrc, '2026-08-11', '2026-08-14', 'keep');
+  ok(k1.removedDays.length === 1 && k1.removedDays[0] === '2026-08-10', '不平移：起始日后移，旧第1天被移除');
+  ok(k1.trip.days['2026-08-12'].length === 1 && k1.trip.days['2026-08-12'][0].title === '第三天', '不平移：事项停留在原日期（第3天仍在第3天）');
+  ok(k1.trip.days['2026-08-11'].length === 0, '不平移：新范围内原本无内容的日期为空');
+  ok(k1.trip.expenses.length === 1 && k1.trip.expenses[0].day === '2026-08-12', '不平移：范围外日期花销删除，范围内保留');
+  var k2 = Store.shiftDates(keepSrc, '2026-08-08', '2026-08-16', 'keep');
+  ok(k2.removedDays.length === 0 && k2.trip.expenses.length === 2, '不平移：范围扩展不删除任何内容');
+  ok(k2.trip.days['2026-08-10'].length === 1 && k2.trip.days['2026-08-16'].length === 0, '不平移：扩展后新增日期为空');
+  var k3 = Store.shiftDates(keepSrc, '2026-08-12', '2026-08-16', 'keep');
+  ok(k3.removedDays.length === 2 && k3.trip.days['2026-08-12'].length === 1, '不平移：整体后移，第3天内容仍在原日期');
+  var kd = Store.shiftDates(keepSrc, '2026-08-11', '2026-08-14');
+  ok(kd.trip.days['2026-08-11'].length === 1 && kd.trip.days['2026-08-11'][0].title === '第一天', '不传 mode 时默认仍为整体平移（向后兼容）');
+
   console.log('== 4. Word 导出/导入往返 ==');
   var buf = await Word.exportFile(JSZip, trip);
   ok(buf && buf.length > 5000, 'Word 导出生成数据（' + buf.length + ' bytes）');

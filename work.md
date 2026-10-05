@@ -4,7 +4,7 @@
 > `PRD_旅游规划网站.md`（需求基线 v2.1）、`.workbuddy/memory/MEMORY.md`（精简项目记忆）、
 > `更新记录.md`（版本迭代摘要）开展工作。首次接手建议同时读根目录 `新会话启动指令.txt`。
 >
-> 最后更新：2026-08-11
+> 最后更新：2026-10-05
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## 2. 已完成的功能（按 PRD v2.1）
 
-- **计划管理**：新增（起止日期 + 选填旅游地点 → 默认名「{地点}之旅」/「{开始} 至 {结束} 旅行」）、重命名、改期（事项**整体平移**，缩短范围末尾天删除需确认）、删除（弹窗二次确认，提示「该计划及其全部事项、注意事项等都将被删除」）、列表按创建时间倒序；「一键清空」需随机 6 位验证码（首位非 0）
+- **计划管理**：新增（起止日期 + 选填旅游地点 → 默认名「{地点}之旅」/「{开始} 至 {结束} 旅行」）、重命名、改期（**两种「日期变更方式」二选一**：①平移事项内容——第 N 天跟随新日期，天数变少则末尾多余天数内容删除；②事项内容跟随原日期（不平移）——安排日期不变，只保留仍在新起止范围内的内容，范围外的日期及其内容删除；选项下方有动态解释文案；有内容被删除时弹二次确认）、删除（弹窗二次确认，提示「该计划及其全部事项、注意事项等都将被删除」）、列表按创建时间倒序；「一键清空」需随机 6 位验证码（首位非 0）
 - **天数与事项**：天数导航；两种新增方式（选时间段 / 在某事项后添加，起始默认=前一事项结束、**结束时间留空必填**）；分钟级重叠校验（`新开始<旧结束 && 新结束>旧开始`，首尾相接允许）；自动按开始时间排序；编辑/删除（二次确认）；每天红色「一键删除」（确认后清空当天事项+花销，无需验证码）；介绍/备注用「添加介绍/添加备注」勾选开关录入（编辑自动预填）
 - **时间输入**：**「时:分」两个数字文本框（AA:BB）**——只打数字、小时满 2 位自动跳转分钟框、**分钟留空默认 00**、保存归一化（8:0 → 08:00）
 - **注意事项**：计划级共享，增删改
@@ -63,8 +63,8 @@ Travel_Plan/                      # 项目根目录（C:\Users\tanjunming\Deskto
 ├── vendor/jszip.min.js           # 唯一第三方库（本地化，无 CDN）
 ├── dist/                         # 云端部署目录（改完代码后 cp 同步）
 ├── tools/
-│   ├── smoke_test.js             # 冒烟测试：数据层/文字往返/花销金额与导入导出等（66 项）
-│   ├── dom_test.js               # DOM 级测试：jsdom 模拟真实点击（82 项，覆盖首页/详情/花销/预览）
+│   ├── smoke_test.js             # 冒烟测试：数据层/文字往返/花销金额与导入导出等（74 项）
+│   ├── dom_test.js               # DOM 级测试：jsdom 模拟真实点击（100 项，覆盖首页/详情/花销/预览/改期方式）
 │   ├── gen_word_sample.js        # 生成官方 Word 样例（样例_北京五日游.docx）
 │   └── gen_sample_indent.js      # 历史遗留，已无用（保留无害）
 ├── PRD_旅游规划网站.md           # 需求基线（v2.1；不保留更新记录）
@@ -100,7 +100,7 @@ Travel_Plan/                      # 项目根目录（C:\Users\tanjunming\Deskto
 
 **当前没有阻塞性卡点**，项目稳定可用。持续维护事项：
 
-1. **PRD 攒批清单**：`PRD_待更新清单.txt` 累计 **0 项**。今后值得记录的需求变更**先追加到该 txt**，等用户说「一并更新到 PRD」再一次性并入（**不要每次直接改 PRD**）。
+1. **PRD 攒批清单**：`PRD_待更新清单.txt` 累计 **5 组待更新**（08-11 三项 UI 调整 / 09-20 站点更名 / 09-20 导出花销开关 / 09-20 默认时间调整 / 10-05 改期方式二选一）。今后值得记录的需求变更**先追加到该 txt**，等用户说「一并更新到 PRD」再一次性并入（**不要每次直接改 PRD**）。
 2. **云端部署按需**：只有用户明确要求时才更新部署；日常改动只需 `cp -r index.html plan.html spend.html author.html css js vendor dist/` 同步。
 3. **长远待做项已确认暂缓**（见 `长远待做清单.md`，未经用户确认**不要实施**）：数据安全提示（save 失败提示/load 损坏兜底）、容量扩容（压缩/IndexedDB）、CloudBase 云同步、行程归档、计划搜索、复制计划、手机真机验证。
 4. **遗留杂物**：`tools/gen_sample_indent.js` 无用但保留无害。
@@ -158,34 +158,34 @@ Travel_Plan/                      # 项目根目录（C:\Users\tanjunming\Deskto
 
 ```bash
 # 语法检查
-"C:/Users/tanjunming/.workbuddy/binaries/node/versions/22.22.2/node.exe" --check js/app.js   # 等
+"C:/Users/tanjunming/.workbuddy/binaries/node/versions/22.22.2-3/node.exe" --check js/app.js   # 等
 
-# 冒烟测试（66 项：数据层/文字往返/花销金额与导入导出…）
+# 冒烟测试（74 项：数据层/文字往返/花销金额与导入导出/两种改期方式…）
 NODE_PATH="C:/Users/tanjunming/.workbuddy/binaries/node/workspace/node_modules" \
-"C:/Users/tanjunming/.workbuddy/binaries/node/versions/22.22.2/node.exe" tools/smoke_test.js
+"C:/Users/tanjunming/.workbuddy/binaries/node/versions/22.22.2-3/node.exe" tools/smoke_test.js
 
-# DOM 测试（82 项：jsdom 模拟真实点击，覆盖首页/详情/花销/预览）
+# DOM 测试（100 项：jsdom 模拟真实点击，覆盖首页/详情/花销/预览/改期方式）
 NODE_PATH="C:/Users/tanjunming/.workbuddy/binaries/node/workspace/node_modules" \
-"C:/Users/tanjunming/.workbuddy/binaries/node/versions/22.22.2/node.exe" tools/dom_test.js
+"C:/Users/tanjunming/.workbuddy/binaries/node/versions/22.22.2-3/node.exe" tools/dom_test.js
 
 # 同步 dist（每次改完代码必做）
 cp -r index.html plan.html spend.html author.html css js vendor dist/
 
 # 重新生成 Word 官方样例
 NODE_PATH="C:/Users/tanjunming/.workbuddy/binaries/node/workspace/node_modules" \
-"C:/Users/tanjunming/.workbuddy/binaries/node/versions/22.22.2/node.exe" tools/gen_word_sample.js [输出文件名.docx]
+"C:/Users/tanjunming/.workbuddy/binaries/node/versions/22.22.2-3/node.exe" tools/gen_word_sample.js [输出文件名.docx]
 
 # 云端部署（仅用户要求时）：内置工具 workbuddy_sites_deploy（「发布应用/sites」），action=deploy，directory=<项目>/dist，language=static，appName=与友行，userAskedToPublish=true
 ```
 
-**运行环境**：受管 Node 22.22.2（`C:\Users\tanjunming\.workbuddy\binaries\node\versions\22.22.2\node.exe`）；依赖（jszip、jsdom）装在隔离 workspace `C:\Users\tanjunming\.workbuddy\binaries\node\workspace`，运行测试需 `NODE_PATH`。浏览器端只需 `vendor/jszip.min.js`。
+**运行环境**：受管 Node 22.22.2（实际目录 `C:\Users\tanjunming\.workbuddy\binaries\node\versions\22.22.2-3\node.exe`，版本号带 `-3` 后缀）；依赖（jszip、jsdom）装在隔离 workspace `C:\Users\tanjunming\.workbuddy\binaries\node\workspace`，运行测试需 `NODE_PATH`（若缺失：在该 workspace 目录执行 `npm install jszip jsdom`）。浏览器端只需 `vendor/jszip.min.js`。
 
 ---
 
-## 9. 当前版本与测试基线（2026-08-11 快照）
+## 9. 当前版本与测试基线（2026-10-05 快照）
 
 - PRD：**v2.1**（迭代稿）；网站代码与 PRD 一致（待更新清单 0 项）
-- 测试：冒烟 **66/66**、DOM **82/82** 全绿
+- 测试：冒烟 **74/74**、DOM **100/100** 全绿
 - 云端：已部署，链接 https://522920836859489c9de53fcd2cff4781.app.workbuddy.host（仅用户要求时更新）
 - 部署目录 `dist/` 与源码保持同步
 

@@ -419,7 +419,52 @@ setTimeout(function () { // 等待删除确认回调（Promise 微任务）执�
   var activeE3 = domE3.window.document.getElementById('plan-app').querySelector('.day-tab.active');
   ok(!!activeE3 && activeE3.getAttribute('data-date') === '2026-08-01', '计划不含今天：默认第一天（与现状一致）');
 
-  console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败');
-  process.exit(fail ? 1 : 0);
+/* ================= F. 修改起止日期：平移 / 不平移 ================= */
+  console.log('== F. 修改起止日期方式 ==');
+  var domF = new JSDOM('<!DOCTYPE html><html><body><div id="plan-app"></div>' +
+    '<footer class="site-footer">作者：Jimmy · <a href="author.html">联系作者</a></footer>' +
+    '<div id="modal-root"></div></body></html>',
+    { url: 'http://localhost/plan.html?id=trip_demo&preview=0', runScripts: 'outside-only', pretendToBeVisual: true });
+  domF.window.localStorage.setItem('travel-planner:v1', JSON.stringify(stE));
+  SCRIPTS.forEach(function (f) { domF.window.eval(fs.readFileSync(path.join(root, f), 'utf8')); });
+  var winF = domF.window, docF = winF.document;
+  click(winF, docF.getElementById('plan-app').querySelector('[data-action="edit-dates"]'));
+  var modalF = docF.getElementById('modal-root').querySelector('.modal');
+  ok(!!modalF, '「修改起止日期」弹窗可打开');
+  var radiosF = modalF.querySelectorAll('input[name="f-date-mode"]');
+  ok(radiosF.length === 2, '弹窗含两个日期变更方式选项');
+  ok(radiosF[0].value === 'shift' && radiosF[0].checked, '默认选中「平移事项内容」');
+  var hintF = modalF.querySelector('#f-date-mode-hint');
+  ok(!!hintF && hintF.textContent.indexOf('整体平移') > -1, '默认显示「整体平移」解释文案');
+  radiosF[1].checked = true;
+  radiosF[1].dispatchEvent(new winF.Event('change', { bubbles: true }));
+  ok(hintF.textContent.indexOf('跟随原日期') > -1, '切换为「不平移」后解释文案实时更新');
+  radiosF[0].checked = true;
+  radiosF[0].dispatchEvent(new winF.Event('change', { bubbles: true }));
+  ok(hintF.textContent.indexOf('整体平移') > -1, '切回「平移」后解释文案恢复');
+  // 执行一次「不平移」改期：2026-08-01 ~ 08-02 → 08-02 ~ 08-03（8/1 有事项，应被删除）
+  modalF.querySelector('#f-start').value = '2026-08-02';
+  modalF.querySelector('#f-end').value = '2026-08-03';
+  radiosF[1].checked = true;
+  radiosF[1].dispatchEvent(new winF.Event('change', { bubbles: true }));
+  click(winF, btnByText(winF, modalF, '保存'));
+  setTimeout(function () {
+    var modalsF = docF.getElementById('modal-root').querySelectorAll('.modal');
+    var confirmF = modalsF[modalsF.length - 1];
+    ok(!!confirmF && confirmF.textContent.indexOf('2026-08-01') > -1, '不平移改期：弹出将被删除日期的确认框');
+    var okBtnF = btnByText(winF, confirmF, '确认删除');
+    ok(!!okBtnF, '确认框含「确认删除」按钮');
+    if (okBtnF) click(winF, okBtnF);
+    setTimeout(function () {
+      var tripsF = JSON.parse(winF.localStorage.getItem('travel-planner:v1')).trips;
+      var tF = tripsF.filter(function (t) { return t.id === 'trip_demo'; })[0];
+      ok(!!tF && tF.startDate === '2026-08-02' && tF.endDate === '2026-08-03', '不平移改期：新起止日期已保存');
+      ok(!!tF && !tF.days['2026-08-01'], '不平移改期：范围外日期（8/1）内容已删除');
+      ok(!!tF && (tF.days['2026-08-02'] || []).length === 0 && (tF.days['2026-08-03'] || []).length === 0,
+         '不平移改期：新范围内无内容的日期为空');
+      console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败');
+      process.exit(fail ? 1 : 0);
+    }, 20);
+  }, 30);
 }, 30);
 }, 20);
